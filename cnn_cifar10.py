@@ -14,7 +14,7 @@ tf.__version__
 
 import numpy as np
 import matplotlib.pyplot as plt
-from tensorflow.keras.layers import Input, Conv2D, Dense, Flatten, Dropout
+from tensorflow.keras.layers import Input, Conv2D, Dense, Flatten, Dropout, BatchNormalization, MaxPooling2D
 from tensorflow.keras.models import Model
 
 cifar10 = tf.keras.datasets.cifar10
@@ -32,18 +32,46 @@ K = len(set(y_train))
 print("numbr of classes = ",K)
 
 i = Input(shape=x_train[0].shape)
-x = Conv2D(filters=32, kernel_size=(3,3), strides=2, activation='relu')(i)
-x = Conv2D(filters=64, kernel_size=(3,3), strides=2, activation='relu')(x)
-x = Conv2D(filters=128, kernel_size=(3,3), strides=2, activation='relu')(x)
+
+x = Conv2D(filters=32, kernel_size=(3,3), activation='relu', padding='same')(i)
+x = BatchNormalization()(x)
+x = Conv2D(filters=32, kernel_size=(3,3), activation='relu', padding='same')(x)
+x = BatchNormalization()(x)
+x = MaxPooling2D((2,2))(x)
+
+x = Conv2D(filters=64, kernel_size=(3,3), activation='relu', padding='same')(x)
+x = BatchNormalization()(x)
+x = Conv2D(filters=64, kernel_size=(3,3), activation='relu', padding='same')(x)
+x = BatchNormalization()(x)
+x = MaxPooling2D((2,2))(x)
+
+x = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(x)
+x = BatchNormalization()(x)
+x = Conv2D(filters=128, kernel_size=(3,3), activation='relu', padding='same')(x)
+x = BatchNormalization()(x)
+x = MaxPooling2D((2,2))(x)
+
 x = Flatten()(x)
 x = Dropout(0.2)(x)
-x = Dense(512,activation='relu')(x)
+x = Dense(1024,activation='relu')(x)
+x = Dropout(0.2)(x)
 x = Dense(K, activation='softmax')(x)
 
 model = Model(i,x)
 
 model.compile(optimizer='adam', loss='sparse_categorical_crossentropy', metrics=['accuracy'])
-r = model.fit(x_train,y_train, validation_data=(x_test,y_test), epochs=15)
+#r = model.fit(x_train,y_train, validation_data=(x_test,y_test), epochs=15)
+
+batch_size = 32
+data_gen = tf.keras.preprocessing.image.ImageDataGenerator(
+    width_shift_range=0.1,
+    height_shift_range=0.1,
+    horizontal_flip=True
+)
+
+train_gen = data_gen.flow(x_train,y_train,batch_size)
+steps_per_epoch = x_train.shape[0]//batch_size
+r = model.fit_generator(train_gen, validation_data = (x_test,y_test), steps_per_epoch = steps_per_epoch, epochs=15)
 
 plt.plot(r.history['loss'],label='loss')
 plt.plot(r.history['val_loss'], label='val_loss')
